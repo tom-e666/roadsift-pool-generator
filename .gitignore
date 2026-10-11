@@ -1,0 +1,23 @@
+# Local Conda environments and package caches
+.conda-env/
+.conda-pkgs/
+.packages/
+
+# Generated pool/holdout data and local exports
+output/
+
+# Python cache and runtime logs
+__pycache__/
+*.py[cod]
+*.log
+
+# Local credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+.streamlit/secrets.yaml
+
+# OS files
+Thumbs.db
+.DS_Store

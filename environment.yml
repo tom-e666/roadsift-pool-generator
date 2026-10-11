@@ -1,0 +1,7 @@
+name: roadsift-bdd-pool-tool
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - streamlit>=1.41,<2
+  - ijson
