@@ -1,15 +1,47 @@
-# BDD100K Pool Tool
+# BDD100K Pool Generator (RoadSift P-021)
 
-Ứng dụng Streamlit chạy cục bộ, nằm ngoài repo RoadSift.
+Công cụ trích xuất dữ liệu BDD100K phục vụ quy trình Active Learning trên **RoadSift (P-021 / RAV-05)**.
 
-## Chạy ứng dụng
+---
 
-Mở `run.bat`. Lần đầu, Conda tạo môi trường trong `.conda-env` rồi mở giao diện trên trình duyệt.
+## 🚀 Khởi chạy
 
-## Các chức năng
+Nhấp đúp **`run.bat`** hoặc chạy lệnh:
+```bash
+streamlit run streamlit_app.py
+```
 
-- **Tạo Pool:** rút ngẫu nhiên ảnh JPG từ `train/images`, không kèm nhãn.
-- **Tạo Holdout:** lấy ảnh từ `val/images`, tối đa một ảnh mỗi chuỗi; chuỗi đã dùng ở Pool bị loại. Nhãn ground truth được lưu riêng trong `holdout/labels.json`.
-- **Nhập batch · Xuất nhãn:** dán đường dẫn tới thư mục/ZIP batch, CSV manifest hoặc JSON lấy từ `GET /api/v2/batches/{batch_id}/samples`. JSON RoadSift được đọc theo `sample.id`, `sample.attributes.source_name` và tự nhận `source_split`; CSV cần cột `source_name,sample_id` (có thể thêm `source_split`). File xuất là BDD100K JSON nhưng `name` dùng sample ID RoadSift, để có thể đưa vào RoadSift > Nhập annotation. Các lớp `pedestrian`, `bicycle`, `motorcycle` được chuẩn hóa thành `person`, `bike`, `motor` theo taxonomy RoadSift.
+---
 
-Đường dẫn archive và output chỉnh ở đầu giao diện. `manifest.csv` của Pool/Holdout lưu index, ID và tên file nguồn; seed giúp tái tạo lượt chọn. Công cụ không gọi API hoặc ghi dữ liệu vào RoadSift: sau khi tải JSON, vào RoadSift > Nhập annotation, chọn batch tương ứng và định dạng BDD100K JSON. Batch phải ở trạng thái `HANDED_OFF` để RoadSift nhận nhãn; backend sẽ kiểm tra membership, taxonomy và annotation trước khi ghi nhận.
+## 📌 4 Chức năng chính
+
+### 1. Tạo Pool (Train)
+* Rút ngẫu nhiên ảnh từ `train/images`, tự động loại trừ sequence thuộc Holdout (chống data leakage).
+* Xuất thư mục `images/` và `manifest.csv` có sẵn cột `content_sha256` chuẩn P-021.
+
+### 2. Tạo Holdout (Val)
+* Rút ảnh từ `val/images` (tối đa 1 frame / sequence hành trình).
+* Xuất `content_sha256.json` dùng để đăng ký danh sách loại trừ trên P-021 (`POST /api/v2/pools/{id}/holdouts`).
+* Xuất kèm ground-truth `labels.json`.
+
+### 3. Gán nhãn batch (Active Learning Loop)
+* Nhận file batch từ RoadSift (JSON sample, handoff items, CSV hoặc ZIP).
+* Tự động tra cứu ngược SHA-256 ra tên file ảnh gốc BDD100K.
+* **Chuẩn hóa nhãn P-021:** Tự động map `person -> pedestrian`, `bike -> bicycle`, `motor -> motorcycle` và lọc bỏ nhãn ngoài taxonomy (tránh lỗi `unknown_class`).
+* Xuất file JSON nhãn sẵn sàng nộp vào mục **Nhập annotation** của P-021.
+
+### 4. Xem trước (Preview Ảnh · Metadata · Nhãn)
+* Duyệt ảnh từ tập Train, Val hoặc thư mục output đã tạo.
+* Render bounding box màu theo từng class trực quan.
+* Xem bảng metadata (thời tiết, thời điểm, bối cảnh, sequence, SHA-256) và bảng toạ độ box chi tiết.
+
+---
+
+## 🔄 Tóm tắt luồng làm việc với RoadSift
+
+1. **Chuẩn bị:** Sinh Pool + Holdout trên tool này.
+2. **Khởi tạo RoadSift:** Tạo Pool mới trên web RoadSift, đăng ký `content_sha256.json` vào Holdout, rồi upload `images/` + `manifest.csv`.
+3. **Vòng lặp Active Learning:**
+   * RoadSift chọn batch cần gán nhãn -> bấm **Handoff** tải batch về.
+   * Kéo file batch vào **Tab 3** của tool để sinh `bdd100k_batch_labels.json`.
+   * Quay lại RoadSift bấm **Nhập annotation** để nộp nhãn và bắt đầu vòng lặp tiếp theo.
